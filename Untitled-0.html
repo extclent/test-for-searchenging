@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>比赛管理与筛选系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh; padding: 20px; color: #333;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { color: #fff; text-align: center; margin-bottom: 30px; font-size: 28px; }
+  .panel {
+    background: #fff; border-radius: 12px; padding: 24px;
+    margin-bottom: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  }
+  .panel h2 { margin-bottom: 16px; color: #444; font-size: 20px; border-left: 4px solid #667eea; padding-left: 10px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { margin-bottom: 6px; font-weight: 600; color: #555; font-size: 14px; }
+  input, select, textarea {
+    padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+    font-size: 14px; transition: border 0.2s; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #667eea; }
+  textarea { resize: vertical; min-height: 70px; }
+  .tag-suggest {
+    background: #f5f7ff; border: 1px dashed #667eea; border-radius: 8px;
+    padding: 10px; margin-top: 8px; font-size: 13px;
+  }
+  .tag-suggest .label { color: #667eea; font-weight: 600; margin-right: 8px; }
+  .tag-chip {
+    display: inline-block; padding: 4px 10px; margin: 3px; background: #fff;
+    border: 1px solid #667eea; color: #667eea; border-radius: 12px;
+    cursor: pointer; font-size: 12px; transition: all 0.2s;
+  }
+  .tag-chip:hover { background: #667eea; color: #fff; }
+  .tag-chip.active { background: #667eea; color: #fff; }
+  .selected-tags { min-height: 36px; padding: 6px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; }
+  .selected-tag {
+    display: inline-block; padding: 4px 10px; margin: 3px; background: #667eea;
+    color: #fff; border-radius: 12px; font-size: 12px;
+  }
+  .selected-tag .remove { margin-left: 6px; cursor: pointer; font-weight: bold; }
+  .btn {
+    padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 14px; font-weight: 600; transition: all 0.2s;
+  }
+  .btn-primary { background: #667eea; color: #fff; }
+  .btn-primary:hover { background: #5568d3; }
+  .btn-secondary { background: #f0f0f0; color: #333; }
+  .btn-danger { background: #ff4757; color: #fff; }
+  .btn-danger:hover { background: #e83a4a; }
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .top-actions {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    margin-bottom: 20px;
+  }
+  .big-btn {
+    padding: 14px 28px !important; font-size: 16px !important;
+    box-shadow: 0 4px 12px rgba(102,126,234,0.35);
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .modal-header h3 {
+    margin: 0; color: #444; font-size: 20px;
+    border-left: 4px solid #667eea; padding-left: 10px;
+  }
+  .modal-close {
+    cursor: pointer; font-size: 22px; color: #999; padding: 4px 10px;
+    border-radius: 6px; transition: all 0.2s; line-height: 1;
+  }
+  .modal-close:hover { background: #f0f0f0; color: #333; }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 10px;
+    background: #f5f7ff; border-radius: 8px; margin-bottom: 16px;
+  }
+  .filter-chip {
+    padding: 6px 14px; background: #fff; border: 1px solid #ccc;
+    border-radius: 16px; cursor: pointer; font-size: 13px; transition: all 0.2s;
+  }
+  .filter-chip:hover { border-color: #667eea; }
+  .filter-chip.active { background: #667eea; color: #fff; border-color: #667eea; }
+  .filter-dropdowns {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px; background: #f5f7ff; border-radius: 8px; margin-bottom: 16px;
+  }
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-toggle {
+    padding: 8px 14px; background: #fff; border: 1px solid #ccc;
+    border-radius: 6px; cursor: pointer; font-size: 14px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.2s; font-weight: 500;
+  }
+  .dropdown-toggle:hover { border-color: #667eea; }
+  .dropdown.open .dropdown-toggle {
+    background: #667eea; color: #fff; border-color: #667eea;
+  }
+  .dropdown-menu {
+    display: none; position: absolute; top: 100%; left: 0;
+    margin-top: 4px; background: #fff; border: 1px solid #e0e0e0;
+    border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    padding: 10px; z-index: 100; min-width: 240px; max-width: 380px;
+    max-height: 380px; overflow-y: auto;
+  }
+  .dropdown.open .dropdown-menu { display: block; }
+  .type-group { margin-bottom: 12px; }
+  .type-group:last-child { margin-bottom: 0; }
+  .type-group-title {
+    font-size: 13px; font-weight: 600; color: #667eea;
+    margin-bottom: 6px; padding-bottom: 4px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .type-group-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .empty-hint { color: #aaa; font-size: 12px; padding: 4px 0; }
+  .active-filters-display {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; align-items: center;
+  }
+  .active-filter-chip {
+    padding: 4px 10px; background: #667eea; color: #fff;
+    border-radius: 12px; font-size: 12px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .active-filter-chip:hover { background: #5568d3; }
+  .competition-card {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+    padding: 16px; margin-bottom: 12px; transition: all 0.2s;
+  }
+  .competition-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .competition-card h3 { color: #2c3e50; margin-bottom: 8px; font-size: 18px; }
+  .competition-meta { color: #888; font-size: 13px; margin-bottom: 8px; }
+  .competition-meta span { margin-right: 16px; }
+  .competition-desc { color: #555; font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
+  .competition-tags { margin-top: 10px; }
+  .competition-tags .tag {
+    display: inline-block; padding: 3px 10px; margin: 2px; font-size: 12px;
+    border-radius: 10px;
+  }
+  .empty { text-align: center; padding: 40px; color: #aaa; }
+  .stats { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat-card {
+    background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;
+    padding: 16px 24px; border-radius: 10px; flex: 1; min-width: 150px;
+  }
+  .stat-card .num { font-size: 28px; font-weight: bold; }
+  .stat-card .label { font-size: 13px; opacity: 0.9; }
+  .btn-success { background: #43e97b; color: #fff; }
+  .btn-success:hover { background: #38d167; }
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 24px;
+    max-width: 95%; max-height: 88vh; overflow: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2); width: 1100px;
+  }
+  .modal h3 { color: #444; font-size: 20px; margin-bottom: 16px; border-left: 4px solid #667eea; padding-left: 10px; }
+  .modal-summary { background: #f5f7ff; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  .modal-summary .highlight { color: #667eea; font-weight: bold; }
+  .modal-summary .warn { color: #fa709a; font-weight: bold; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  .preview-table th { background: #667eea; color: #fff; padding: 8px; text-align: left; position: sticky; top: 0; z-index: 1; }
+  .preview-table td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .preview-table tr.dup { background: #fff5f5; }
+  .preview-table .tag-mini { display: inline-block; padding: 2px 6px; margin: 1px; background: #f0f0f8; border-radius: 8px; font-size: 11px; color: #555; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🏆 比赛管理与筛选系统</h1>
+
+  <div class="stats">
+    <div class="stat-card"><div class="num" id="stat-total">0</div><div class="label">比赛总数</div></div>
+    <div class="stat-card"><div class="num" id="stat-tags">0</div><div class="label">标签种类</div></div>
+    <div class="stat-card"><div class="num" id="stat-filtered">0</div><div class="label">当前筛选结果</div></div>
+  </div>
+
+  <div class="top-actions">
+    <button class="btn btn-primary big-btn" onclick="openFormModal()">➕ 录入比赛信息</button>
+  </div>
+
+  <div class="panel">
+    <h2>按标签筛选</h2>
+    <div class="filter-dropdowns">
+      <div class="dropdown" id="level-dropdown">
+        <button class="dropdown-toggle" onclick="toggleDropdown('level-dropdown')">
+          🏆 比赛级别 <span class="caret">▾</span>
+        </button>
+        <div class="dropdown-menu" id="level-menu"></div>
+      </div>
+      <div class="dropdown" id="type-dropdown">
+        <button class="dropdown-toggle" onclick="toggleDropdown('type-dropdown')">
+          📚 比赛类型 <span class="caret">▾</span>
+        </button>
+        <div class="dropdown-menu" id="type-menu"></div>
+      </div>
+      <button class="btn btn-secondary" onclick="clearFilter()">清除筛选</button>
+      <div class="active-filters-display" id="active-filters-display"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>搜索比赛</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>按比赛名称搜索</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="search-name" placeholder="输入比赛名称关键字（如：数学建模）" oninput="applySearch()">
+          <button class="btn btn-secondary" onclick="clearSearch()">清除</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>按日期搜索（选定日期之后 60 天内的比赛）</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" id="search-start-date" onchange="applyDateRange()">
+          <button class="btn btn-secondary" onclick="clearDateRange()">清除日期</button>
+        </div>
+      </div>
+    </div>
+    <div id="search-info" style="margin-top:10px;font-size:13px;color:#667eea"></div>
+  </div>
+
+  <div class="panel">
+    <h2>比赛列表</h2>
+    <div id="competition-list"></div>
+  </div>
+</div>
+
+<script>
+let competitions = [];
+let selectedTags = new Set();
+let activeFilters = new Set();
+let searchName = '';
+let dateRangeStart = '';
+
+// 从后端 API 加载比赛列表
+async function fetchCompetitions() {
+  try {
+    const r = await fetch('/api/competitions');
+    competitions = await r.json();
+    renderAll();
+  } catch (e) {
+    console.error('加载比赛列表失败', e);
+    document.getElementById('competition-list').innerHTML =
+      '<div class="empty">⚠ 无法连接服务器，请确认 server.py 已启动</div>';
+  }
+}
+
+const TAG_RULES = {
+  '数学建模': ['数学', '建模', 'matlab'],
+  '程序设计': ['编程', '程序', '代码', '算法', 'acm', 'leetcode', '开发'],
+  '人工智能': ['ai', '人工智能', '机器学习', '深度学习', '数据'],
+  '机械创新': ['机械', '制造', '结构', 'cad'],
+  '电子设计': ['电子', '电路', '单片机', '嵌入式'],
+  '商业计划': ['商业', '创业', 'bp', '路演'],
+  '数学': ['数学', '高数', '微积分'],
+  '物理': ['物理', '力学', '光电'],
+  '化学': ['化学', '材料', '化工'],
+  '文学': ['文学', '写作', '作文', '诗歌'],
+  '外语': ['英语', '日语', '翻译', '口语', '演讲'],
+  '设计': ['设计', '美术', '创意', '海报', 'ui'],
+  '体育': ['体育', '运动', '球', '田径'],
+  '音乐': ['音乐', '歌唱', '乐器', '合唱'],
+  '国家级': ['全国', '国家'],
+  '省级': ['省', '全省'],
+  '国际级': ['国际', '世界'],
+  '高奖金': ['奖金', '万元', '万'],
+  '高含金量': ['教育部', '官方', '认证', '重点'],
+};
+
+function getSignupTime() {
+  const p = document.getElementById('signupPrecision');
+  if (!p) return ''; // 表单弹窗尚未解析
+  const precision = p.value;
+  const val = precision === 'date'
+    ? document.getElementById('signupDate').value
+    : document.getElementById('signupMonth').value;
+  return val || '';
+}
+
+function switchSignupInput() {
+  const precision = document.getElementById('signupPrecision').value;
+  document.getElementById('signupDate').style.display  = precision === 'date'  ? 'block' : 'none';
+  document.getElementById('signupMonth').style.display = precision === 'month' ? 'block' : 'none';
+  suggestTags();
+}
+
+// 不同级别对应的比赛时间字段
+function getCompTimeFields(level) {
+  if (level === '市级')   return ['初赛时间', '市决赛时间'];
+  if (level === '省级')   return ['初赛时间', '市级比赛时间', '省决赛时间'];
+  if (level === '国家级') return ['初赛时间', '省赛时间', '国赛时间'];
+  return [];
+}
+
+// 临时存储已填写的比赛时间，避免切换级别时丢失输入
+let compTimes = {};
+
+function renderCompTimeFields() {
+  const level = document.getElementById('level').value;
+  const fields = getCompTimeFields(level);
+  const container = document.getElementById('comp-times-container');
+  const hint = document.getElementById('comp-time-hint');
+  container.innerHTML = '';
+  if (fields.length === 0) {
+    hint.textContent = '（当前级别无需填写比赛时间）';
+    return;
+  }
+  hint.textContent = '';
+  fields.forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.className = 'form-group';
+    const val = compTimes[f] || '';
+    wrap.innerHTML =
+      '<label style="font-size:13px;font-weight:600;color:#555">' + escapeHtml(f) + '</label>' +
+      '<input type="date" data-comp-time="' + escapeAttr(f) + '" value="' + val + '" oninput="onCompTimeInput()">';
+    container.appendChild(wrap);
+  });
+}
+
+function onCompTimeInput() {
+  document.querySelectorAll('[data-comp-time]').forEach(input => {
+    compTimes[input.getAttribute('data-comp-time')] = input.value;
+  });
+}
+
+function escapeAttr(s) {
+  return String(s)
+    .replace(/\\/g, '\\\\')    // JS 字符串：转义反斜杠
+    .replace(/'/g, "\\'")      // JS 字符串：转义单引号
+    .replace(/"/g, '&quot;')   // HTML 属性：转义双引号
+    .replace(/</g, '&lt;');    // HTML 属性：防标签逃逸
+}
+
+function suggestTags() {
+  if (!document.getElementById('name')) return; // 表单弹窗尚未解析
+  const text = (
+    document.getElementById('name').value + ' ' +
+    document.getElementById('organizer').value + ' ' +
+    document.getElementById('undertaker').value + ' ' +
+    document.getElementById('category').value + ' ' +
+    document.getElementById('level').value + ' ' +
+    getSignupTime()
+  ).toLowerCase();
+  const suggestions = new Set();
+  for (const [tag, keywords] of Object.entries(TAG_RULES)) {
+    if (keywords.some(k => text.includes(k.toLowerCase()))) suggestions.add(tag);
+  }
+  document.getElementById('level').value && suggestions.add(document.getElementById('level').value);
+  const cat = document.getElementById('category').value.trim();
+  if (cat) {
+    // 按常见分隔符拆分赛道为多个标签
+    cat.split(/[\/／、,，;；\s]+/).filter(Boolean).forEach(s => suggestions.add(s));
+  }
+  const container = document.getElementById('suggested-tags');
+  container.innerHTML = '';
+  suggestions.forEach(tag => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip' + (selectedTags.has(tag) ? ' active' : '');
+    chip.textContent = '+ ' + tag;
+    chip.onclick = () => { selectedTags.add(tag); renderTags(); suggestTags(); };
+    container.appendChild(chip);
+  });
+  if (suggestions.size === 0) container.innerHTML = '<span style="color:#999">填写内容后自动推荐...</span>';
+}
+
+function renderTags() {
+  const container = document.getElementById('selected-tags');
+  container.innerHTML = '';
+  if (selectedTags.size === 0) {
+    container.innerHTML = '<span style="color:#aaa;font-size:13px">尚未选择标签</span>';
+    return;
+  }
+  selectedTags.forEach(tag => {
+    const el = document.createElement('span');
+    el.className = 'selected-tag';
+    el.innerHTML = tag + '<span class="remove" onclick="removeTag(\'' + tag.replace(/'/g,"\\'") + '\')">×</span>';
+    container.appendChild(el);
+  });
+}
+
+function removeTag(tag) { selectedTags.delete(tag); renderTags(); suggestTags(); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const ct = document.getElementById('custom-tag');
+  if (ct) ct.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const v = e.target.value.trim();
+      if (v) { selectedTags.add(v); renderTags(); suggestTags(); e.target.value = ''; }
+    }
+  });
+  ['name','organizer','undertaker','category','level','signupDate','signupMonth'].forEach(id => {
+    const el = document.getElementById(id);
+    el && el.addEventListener('input', suggestTags);
+  });
+});
+
+async function saveCompetition() {
+  const name = document.getElementById('name').value.trim();
+  if (!name) { alert('请输入赛事名称'); return; }
+  const precision = document.getElementById('signupPrecision').value;
+  const signupTime = getSignupTime();
+  if (!signupTime) { alert('请选择报名时间'); return; }
+  const comp = {
+    name,
+    level: document.getElementById('level').value,
+    signupPrecision: precision,
+    signupTime,
+    signupTimeLabel: precision === 'date' ? signupTime : signupTime + '（月份）',
+    category: document.getElementById('category').value.trim(),
+    organizer: document.getElementById('organizer').value.trim(),
+    undertaker: document.getElementById('undertaker').value.trim(),
+    signupLink: document.getElementById('signupLink').value.trim(),
+    tags: Array.from(selectedTags),
+    compTimes: Object.assign({}, compTimes),
+  };
+  try {
+    const r = await fetch('/api/competitions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(comp)
+    });
+    if (r.status === 409) {
+      const d = await r.json();
+      alert(d.message || '该比赛已存在');
+      return;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    resetForm();
+    await fetchCompetitions();
+    closeFormModal();
+  } catch (e) {
+    alert('保存失败：' + e.message);
+  }
+}
+
+function openFormModal() {
+  document.getElementById('form-modal').classList.add('active');
+  // 确保动态比赛时间字段按当前级别渲染
+  renderCompTimeFields();
+  suggestTags(); renderTags();
+}
+
+function closeFormModal() {
+  document.getElementById('form-modal').classList.remove('active');
+}
+
+// 点击遮罩空白处关闭
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('form-modal').addEventListener('click', e => {
+    if (e.target.id === 'form-modal') closeFormModal();
+  });
+});
+
+function resetForm() {
+  ['name','organizer','undertaker','category','signupLink','signupDate','signupMonth','custom-tag'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('level').value = '国家级';
+  document.getElementById('signupPrecision').value = 'date';
+  switchSignupInput();
+  compTimes = {};
+  renderCompTimeFields();
+  selectedTags.clear();
+  renderTags(); suggestTags();
+}
+
+async function deleteCompetition(id) {
+  if (!confirm('确定删除此比赛？')) return;
+  try {
+    await fetch('/api/competitions/' + id, { method: 'DELETE' });
+    await fetchCompetitions();
+  } catch (e) {
+    alert('删除失败：' + e.message);
+  }
+}
+
+function toggleFilter(tag) {
+  if (activeFilters.has(tag)) activeFilters.delete(tag);
+  else activeFilters.add(tag);
+  renderList(); renderFilters(); updateStats();
+}
+
+function clearFilter() { activeFilters.clear(); renderAll(); }
+
+function getFiltered() {
+  let data = competitions;
+  if (activeFilters.size > 0) {
+    data = data.filter(c => {
+      const tags = new Set(c.tags);
+      return Array.from(activeFilters).every(t => tags.has(t));
+    });
+  }
+  if (searchName) {
+    data = data.filter(c => (c.name || '').toLowerCase().includes(searchName));
+  }
+  if (dateRangeStart) {
+    const start = new Date(dateRangeStart);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 60);
+    end.setHours(23, 59, 59, 999);
+    data = data.filter(c => competitionOverlapsDateRange(c, start, end));
+  }
+  return data;
+}
+
+// 解析报名时间：日期精度直接解析，月份精度按月第一天解析
+// 判断比赛任意时间点是否落入 [start, end] 范围
+function competitionOverlapsDateRange(c, start, end) {
+  // 1) 结构化比赛时间 compTimes (YYYY-MM-DD)
+  if (c.compTimes) {
+    for (const k in c.compTimes) {
+      const v = c.compTimes[k];
+      if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        const d = new Date(v + 'T00:00:00');
+        if (!isNaN(d) && d >= start && d <= end) return true;
+      }
+    }
+  }
+  // 2) 结构化报名时间 (date 或 month 精度)
+  if (c.signupTime) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(c.signupTime)) {
+      const d = new Date(c.signupTime + 'T00:00:00');
+      if (!isNaN(d) && d >= start && d <= end) return true;
+    } else if (/^\d{4}-\d{2}$/.test(c.signupTime) || c.signupPrecision === 'month') {
+      const y = parseInt(c.signupTime.slice(0, 4));
+      const mo = parseInt(c.signupTime.slice(5, 7));
+      if (!isNaN(y) && !isNaN(mo) && mo >= 1 && mo <= 12) {
+        const ms = new Date(y, mo - 1, 1);
+        const me = new Date(y, mo, 0, 23, 59, 59, 999);
+        if (ms <= end && me >= start) return true;
+      }
+    } else {
+      // 3) Excel 导入的中文自由文本 - 提取所有 YYYY年M月 做月份范围重叠匹配
+      const ranges = extractMonthRangesFromText(c.signupTime);
+      for (const r of ranges) {
+        if (r.start <= end && r.end >= start) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// 从中文自由文本中提取所有月份范围 (YYYY年M月 → 该月 1 号到月末)
+// 兼容 "YYYY年M月-N月" 范围中后段无年份的情况（用最近见到的年份补全）
+function extractMonthRangesFromText(text) {
+  if (!text) return [];
+  const ranges = [];
+  const seen = new Set();
+  let lastYear = null;
+  let m;
+  // 1) 先匹配带年份的 YYYY年M月[D日]
+  const reYM = /(\d{4})年(\d{1,2})月(?:\d{1,2}日)?/g;
+  while ((m = reYM.exec(text)) !== null) {
+    const y = +m[1]; const mo = +m[2];
+    if (y >= 2000 && y <= 2100 && mo >= 1 && mo <= 12) {
+      lastYear = y;
+      const key = y + '-' + mo;
+      if (!seen.has(key)) {
+        seen.add(key);
+        ranges.push({ start: new Date(y, mo - 1, 1), end: new Date(y, mo, 0, 23, 59, 59, 999) });
+      }
+    }
+  }
+  // 2) 再匹配单独的 M月（前缀不是 YYYY年）- 用最近见到的年份补全
+  const reM = /(\d{1,2})月/g;
+  while ((m = reM.exec(text)) !== null) {
+    const prefix = text.substring(Math.max(0, m.index - 5), m.index);
+    if (/\d{4}年$/.test(prefix)) continue;
+    const mo = +m[1];
+    if (mo >= 1 && mo <= 12) {
+      const y = lastYear || new Date().getFullYear();
+      const key = y + '-' + mo;
+      if (!seen.has(key)) {
+        seen.add(key);
+        ranges.push({ start: new Date(y, mo - 1, 1), end: new Date(y, mo, 0, 23, 59, 59, 999) });
+      }
+    }
+  }
+  return ranges;
+}
+
+function applySearch() {
+  searchName = document.getElementById('search-name').value.trim().toLowerCase();
+  renderList(); updateStats();
+}
+
+function clearSearch() {
+  document.getElementById('search-name').value = '';
+  searchName = '';
+  renderList(); updateStats();
+}
+
+function applyDateRange() {
+  dateRangeStart = document.getElementById('search-start-date').value;
+  renderList(); updateStats(); updateSearchInfo();
+}
+
+function clearDateRange() {
+  document.getElementById('search-start-date').value = '';
+  dateRangeStart = '';
+  renderList(); updateStats(); updateSearchInfo();
+}
+
+function updateSearchInfo() {
+  const info = document.getElementById('search-info');
+  if (!dateRangeStart) { info.textContent = ''; return; }
+  const start = new Date(dateRangeStart);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 60);
+  info.textContent = '筛选范围：' + start.toLocaleDateString() + ' 至 ' + end.toLocaleDateString() + '（含 60 天）';
+}
+
+function getAllTags() {
+  const set = new Set();
+  competitions.forEach(c => c.tags.forEach(t => set.add(t)));
+  return Array.from(set).sort();
+}
+
+function renderFilters() {
+  const allTags = getAllTags();
+  const levelTags = [];
+  const typeTags = { '双创类': [], '科创类': [] };
+  allTags.forEach(t => {
+    const c = classifyTag(t);
+    if (c === 'level') levelTags.push(t);
+    else typeTags[c].push(t);
+  });
+
+  const renderChip = (tag) => {
+    const active = activeFilters.has(tag);
+    const count = competitions.filter(c => c.tags.includes(tag)).length;
+    return '<span class="filter-chip' + (active ? ' active' : '') + '" onclick="toggleFilter(\'' + escapeAttr(tag) + '\')">' + escapeHtml(tag) + ' (' + count + ')</span>';
+  };
+
+  const levelMenu = document.getElementById('level-menu');
+  levelMenu.innerHTML = levelTags.length
+    ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' + levelTags.map(renderChip).join('') + '</div>'
+    : '<div class="empty-hint">暂无级别标签</div>';
+
+  const typeMenu = document.getElementById('type-menu');
+  typeMenu.innerHTML = Object.entries(typeTags).map(([g, tags]) =>
+    '<div class="type-group">' +
+    '<div class="type-group-title">' + g + ' <span style="color:#999;font-weight:normal;font-size:11px">(' + tags.length + ')</span></div>' +
+    '<div class="type-group-tags">' + (tags.length ? tags.map(renderChip).join('') : '<span class="empty-hint">无</span>') + '</div>' +
+    '</div>'
+  ).join('');
+
+  const activeDisplay = document.getElementById('active-filters-display');
+  activeDisplay.innerHTML = activeFilters.size
+    ? Array.from(activeFilters).map(t => '<span class="active-filter-chip" onclick="toggleFilter(\'' + escapeAttr(t) + '\')">' + escapeHtml(t) + ' ✕</span>').join('')
+    : '<span style="color:#999;font-size:12px">未筛选</span>';
+}
+
+// 标签分类：level / 双创类 / 科创类
+function classifyTag(tag) {
+  if (/国家级|省级|市级|校级|院级|国际级|唐山|级$/.test(tag)) return 'level';
+  if (/创|业|商|路演|bp|奖金|含金量|计划/i.test(tag)) return '双创类';
+  return '科创类';
+}
+
+// 下拉菜单切换
+function toggleDropdown(id) {
+  const el = document.getElementById(id);
+  document.querySelectorAll('.dropdown.open').forEach(d => {
+    if (d.id !== id) d.classList.remove('open');
+  });
+  el.classList.toggle('open');
+}
+
+// 点击外部关闭下拉
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+});
+
+function renderList() {
+  const list = document.getElementById('competition-list');
+  const data = getFiltered();
+  if (data.length === 0) {
+    list.innerHTML = '<div class="empty">📭 暂无比赛数据' + (activeFilters.size ? '，或当前筛选无匹配项' : '，请录入第一条比赛') + '</div>';
+    return;
+  }
+  const colors = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#30cfd0','#a8edea','#ff9a9e','#d4fc79'];
+  list.innerHTML = data.map(c => {
+    const tagHtml = c.tags.map((t,i) =>
+      `<span class="tag" style="background:${colors[i%colors.length]}22;color:${colors[i%colors.length]}">${t}</span>`
+    ).join('');
+    const compTimesHtml = c.compTimes && Object.keys(c.compTimes).length
+      ? Object.entries(c.compTimes)
+          .filter(([k,v]) => v)
+          .map(([k,v]) => `<span>🏁 ${escapeHtml(k)}: ${escapeHtml(v)}</span>`).join('')
+      : '';
+    return `
+      <div class="competition-card">
+        <h3>${escapeHtml(c.name)}</h3>
+        <div class="competition-meta">
+          ${c.level ? `<span>📊 级别: ${escapeHtml(c.level)}</span>`:''}
+          ${c.signupTimeLabel ? `<span>⏰ 报名时间: ${escapeHtml(c.signupTimeLabel)}</span>`:''}
+          ${c.category ? `<span>🏷 赛道: ${escapeHtml(c.category)}</span>`:''}
+          ${c.organizer ? `<span>主办: ${escapeHtml(c.organizer)}</span>`:''}
+          ${c.undertaker ? `<span>🤝 承办: ${escapeHtml(c.undertaker)}</span>`:''}
+        </div>
+        ${compTimesHtml ? `<div class="competition-meta">${compTimesHtml}</div>`:''}
+        ${c.signupLink ? `<div class="competition-desc"><a href="${escapeHtml(c.signupLink)}" target="_blank" rel="noopener" style="color:#667eea;">🔗 报名链接：${escapeHtml(c.signupLink)}</a></div>`:''}
+        <div class="competition-tags">${tagHtml}</div>
+        <div style="margin-top:10px;text-align:right">
+          <button class="btn btn-danger" onclick="deleteCompetition(${c.id})">删除</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = competitions.length;
+  document.getElementById('stat-tags').textContent = getAllTags().length;
+  document.getElementById('stat-filtered').textContent = getFiltered().length;
+}
+
+function renderAll() { renderFilters(); renderList(); updateStats(); }
+
+// ==================== Excel 批量导入（调用后端 API） ====================
+let pendingImportItems = [];
+
+async function onExcelFileChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/excel/parse', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.error) { alert(data.error); e.target.value = ''; return; }
+    handleParsedRows(data.rows);
+  } catch (err) {
+    alert('解析失败：' + (err && err.message ? err.message : err));
+  }
+  e.target.value = '';
+}
+
+function handleParsedRows(rows) {
+  if (!rows || rows.length === 0) { alert('未解析到任何有效数据行'); return; }
+  // 后端已完成字段映射、时间解析、标签推荐、重复检测
+  // 每个 row 含 name/level/signupPrecision/signupTime/signupTimeLabel/category/organizer/undertaker/signupLink/tags/exists/duplicate
+  pendingImportItems = rows.map(r => ({
+    name: r.name,
+    level: r.level,
+    signupPrecision: r.signupPrecision,
+    signupTime: r.signupTime,
+    signupTimeLabel: r.signupTimeLabel,
+    category: r.category,
+    organizer: r.organizer,
+    undertaker: r.undertaker,
+    signupLink: r.signupLink,
+    tags: r.tags || [],
+    _dup: r.exists || r.duplicate
+  }));
+  showImportPreview(pendingImportItems);
+}
+
+function showImportPreview(items) {
+  const dupCount = items.filter(x => x._dup).length;
+  const summary = document.getElementById('import-summary');
+  summary.innerHTML = '共解析 <span class="highlight">' + items.length + '</span> 条比赛信息，其中 ' +
+    (dupCount > 0
+      ? '<span class="warn">' + dupCount + ' 条与现有数据重复</span>，将自动跳过'
+      : '<span class="highlight">' + items.length + '</span> 条全部为新数据');
+  const tbl = document.getElementById('preview-table');
+  const colors = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#fee140'];
+  let html = '<thead><tr>' +
+    '<th style="width:30px">#</th>' +
+    '<th>赛事名称</th><th>级别</th><th>报名时间</th><th>赛道</th><th>主办单位</th><th>标签</th><th>状态</th>' +
+    '</tr></thead><tbody>';
+  items.forEach((it, i) => {
+    const tagHtml = it.tags.slice(0, 6).map((t, j) =>
+      '<span class="tag-mini" style="background:' + colors[j % colors.length] + '22;color:' + colors[j % colors.length] + '">' + escapeHtml(t) + '</span>'
+    ).join('') + (it.tags.length > 6 ? '<span class="tag-mini">+' + (it.tags.length - 6) + '</span>' : '');
+    const timeLabel = escapeHtml(it.signupTimeLabel || '-').replace(/\n/g, '<br>');
+    html += '<tr class="' + (it._dup ? 'dup' : '') + '">' +
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + escapeHtml(it.name) + '</td>' +
+      '<td>' + escapeHtml(it.level || '-') + '</td>' +
+      '<td>' + timeLabel + '</td>' +
+      '<td>' + escapeHtml(it.category || '-') + '</td>' +
+      '<td>' + escapeHtml(it.organizer || '-') + '</td>' +
+      '<td>' + (tagHtml || '-') + '</td>' +
+      '<td>' + (it._dup ? '<span style="color:#fa709a">重复跳过</span>' : '<span style="color:#43e97b">新导入</span>') + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+  document.getElementById('import-modal').classList.add('active');
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('active');
+  pendingImportItems = [];
+}
+
+async function confirmImport() {
+  const items = pendingImportItems.filter(x => !x._dup).map(x => ({
+    name: x.name, level: x.level, signupPrecision: x.signupPrecision,
+    signupTime: x.signupTime, signupTimeLabel: x.signupTimeLabel,
+    category: x.category, organizer: x.organizer, undertaker: x.undertaker,
+    signupLink: x.signupLink, tags: x.tags
+  }));
+  try {
+    const r = await fetch('/api/competitions/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items })
+    });
+    const d = await r.json();
+    closeImportModal();
+    await fetchCompetitions();
+    let msg = '成功导入 ' + d.added + ' 条';
+    if (d.skipped > 0) msg += '，跳过重复 ' + d.skipped + ' 条';
+    alert(msg);
+  } catch (e) {
+    alert('导入失败：' + e.message);
+  }
+}
+
+function downloadTemplate() {
+  window.open('/api/excel/template', '_blank');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  suggestTags(); renderTags(); renderCompTimeFields();
+});
+fetchCompetitions();
+</script>
+
+<div class="modal-overlay" id="form-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>录入比赛信息</h3>
+      <span class="modal-close" onclick="closeFormModal()">✕</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>赛事名称 *</label>
+        <input type="text" id="name" placeholder="如：全国大学生数学建模竞赛">
+      </div>
+      <div class="form-group">
+        <label>赛事级别</label>
+        <select id="level" onchange="renderCompTimeFields()">
+          <option value="国际级">国际级</option>
+          <option value="国家级">国家级</option>
+          <option value="省级">省级</option>
+          <option value="市级">市级</option>
+          <option value="校级">校级</option>
+          <option value="院级">院级</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>报名时间精度</label>
+        <select id="signupPrecision" onchange="switchSignupInput()">
+          <option value="date">月/日</option>
+          <option value="month">月</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>报名时间 *</label>
+        <input type="date" id="signupDate" style="display:block">
+        <input type="month" id="signupMonth" style="display:none">
+      </div>
+      <div class="form-group">
+        <label>参赛类别/赛道</label>
+        <input type="text" id="category" placeholder="如：创新创业 / 数学建模 / 编程开发">
+      </div>
+      <div class="form-group">
+        <label>主办单位</label>
+        <input type="text" id="organizer" placeholder="如：教育部高等教育司">
+      </div>
+      <div class="form-group full">
+        <label>承办/执行/组织单位</label>
+        <input type="text" id="undertaker" placeholder="如：XX省教育厅 / XX大学 / XX学院（多个用 / 分隔）">
+      </div>
+      <div class="form-group full">
+        <label>比赛时间 <span id="comp-time-hint" style="color:#999;font-weight:normal;font-size:12px"></span></label>
+        <div id="comp-times-container" class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"></div>
+      </div>
+      <div class="form-group full">
+        <label>报名链接</label>
+        <input type="url" id="signupLink" placeholder="https://...">
+      </div>
+      <div class="form-group full">
+        <label>智能标签推荐</label>
+        <div class="tag-suggest">
+          <span class="label">根据填写内容自动推荐：</span>
+          <span id="suggested-tags"></span>
+        </div>
+      </div>
+      <div class="form-group full">
+        <label>已选标签</label>
+        <div class="selected-tags" id="selected-tags"></div>
+      </div>
+      <div class="form-group full">
+        <label>自定义标签（输入后按回车添加）</label>
+        <input type="text" id="custom-tag" placeholder="输入自定义标签后按回车">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="saveCompetition()">保存比赛</button>
+      <button class="btn btn-secondary" onclick="resetForm()">清空表单</button>
+      <button class="btn btn-success" onclick="document.getElementById('excel-file').click()">📥 批量导入 Excel</button>
+      <button class="btn btn-secondary" onclick="downloadTemplate()">📋 下载模板</button>
+      <button class="btn btn-secondary" onclick="closeFormModal()">取消</button>
+      <input type="file" id="excel-file" accept=".xls,.xlsx,.csv" style="display:none" onchange="onExcelFileChange(event)">
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <h3>批量导入预览</h3>
+    <div class="modal-summary" id="import-summary"></div>
+    <div style="max-height: 55vh; overflow: auto;">
+      <table class="preview-table" id="preview-table"></table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeImportModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmImport()">确认导入（跳过重复）</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
